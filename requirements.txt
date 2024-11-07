@@ -1,0 +1,16 @@
+PyYAML
+torch
+torchvision
+pytorchvideo
+wandb
+pandas
+numpy
+scikit-image
+scikit-learn
+stam-pytorch
+timesformer-pytorch
+opencv-python-headless
+zarr
+matplotlib
+seaborn
+torchmetrics
