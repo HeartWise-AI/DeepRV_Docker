@@ -1,5 +1,6 @@
 Orion/
-input/
-output/
+outputs/
 **/__pycache__/
 deeprv-env/
+api_key.json
+weights/
