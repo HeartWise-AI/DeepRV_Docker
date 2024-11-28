@@ -3,12 +3,12 @@
 
 ## 🚀 Features
 
-- X3D-based multilabel classification model for video (binary classification)
+- X3D-based multilabel classification model for video (RV function binary classification)
+- MViT-based multilabel classification model for video (RV function binary classification)
+- Generate examen-based and video-based metrics (AUC, Accuracy, Sensitivity, Specificity, F1-score)
 - Dockerized deployment for easy setup and execution
 - Configurable pipeline for flexible usage
 - CPU & GPU support for accelerated processing
-
-
 
 ## 🛠️ Installation 
 
@@ -37,8 +37,24 @@
 
 5. 🚀 Run the docker container: (see [Docker](#docker) for more details)
    ```
-   docker run --gpus "device=0" -v local_path_to_inputs:/app/inputs -v local_path_to_outputs:/app/outputs -v local_path_to_videos:/app/videos -i deeprv-docker --csv_file_name data_rows_template.csv
+   docker run --gpus "device=0" -v $(pwd)/inputs:/app/inputs -v $(pwd)/outputs:/app/outputs -v $(pwd)/videos:/app/videos -i deeprv-docker --csv_file_name data_rows_template.csv
    ```
+
+## 📄 Usage
+1. Prepare your input csv file with the following columns: `FileName`, `Outcome`, `Split`, `Examen_ID` (see inputs/data_rows_template.csv for reference) 
+   - Note that the `Examen_ID` column is optional for video-based metrics computation, but it is mendatory for examen-based metrics computation
+2. Prepare you pipeline configuration file (see heartwise.config for reference) - **Recommended to use default config and change only the necessary parameters**
+   - `model_device`: GPU device to use for inference (e.g. `cuda:0` or `cuda:1`)
+   - `data_path`: Path to the input csv file **without the filename**
+   - `config_path`: Path to the pipeline configuration file, **should not be modified**
+   - `batch_size`: Batch size for inference
+   - `output_folder`: Path to the output folder
+   - `hugging_face_api_key_path`: Path to the HuggingFace API key file
+   - `use_x3d`: Boolean to use X3D model
+   - `use_mvit`: Boolean to use MViT model
+   - `video_path`: Path to the videos folder
+   - `num_workers`: Number of workers for the dataloader
+   - `eval_granularity`: Granularity of the evaluation **(options: `video`, `examen`, `video examen`)**
 
 ## 🐳 Docker
 
@@ -81,7 +97,7 @@ These commands mount the `inputs/`, `outputs/` and `videos/` directories from yo
 4. Run the pipeline:
    Option 1: execute the main script with the correct arguments:
      ```
-     python main.py --model_device cuda:1 --data_path inputs/data_rows_template.csv --config_path ./config/config_template.yaml --batch_size 32 --output_folder outputs --hugging_face_api_key_path api_key.json --use_x3d True --use_mvit False --video_path videos --preprocessing_n_workers 16
+     python main.py --model_device cuda:0 --data_path inputs/data_rows_template.csv --config_path ./config/config_template.yaml --batch_size 32 --output_folder outputs --hugging_face_api_key_path api_key.json --use_x3d True --use_mvit False --video_path videos --num_workers 16 --eval_granularity video examen
      ```
 
    Option 2: execute the bash script:
