@@ -24,6 +24,7 @@ use_x3d=$(get_param "use_x3d")
 use_mvit=$(get_param "use_mvit")
 num_workers=$(get_param "num_workers")
 video_path=$(get_param "video_path")
+eval_granularity=$(get_param "eval_granularity")
 
 # Overwrite mode by command line argument
 while [[ "$#" -gt 0 ]]; do
@@ -63,6 +64,7 @@ run_pipeline() {
         --use_mvit $use_mvit \
         --video_path $video_path \
         --num_workers $num_workers \
+        --eval_granularity $eval_granularity
 }
 
 # Main execution based on mode

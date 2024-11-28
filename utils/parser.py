@@ -27,4 +27,5 @@ class HearWiseArgs:
         parser.add_argument('--use_mvit', help='Use MViT for video processing', type=HearWiseArgs.str2bool, required=True)
         parser.add_argument('--video_path', help='Path to the videos', type=str, required=True)
         parser.add_argument('--num_workers', help='Number of workers for the preprocessing', type=int, default=16)
+        parser.add_argument('--eval_granularity', help='Granularity of the evaluation', nargs='+', default=['examen'])
         return parser.parse_args()

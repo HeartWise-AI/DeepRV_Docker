@@ -76,7 +76,9 @@ def compute_metrics(df_predictions_inference: pd.DataFrame)->dict:
         y_pred=y_pred,
         metrics=[
             ClassificationMetrics.AUC, 
-            ClassificationMetrics.AUPRC, 
+            ClassificationMetrics.AUPRC,
+            ClassificationMetrics.SENSITIVITY,
+            ClassificationMetrics.SPECIFICITY,
             ClassificationMetrics.F1_SCORE
         ],
         bootstrap=True,
@@ -84,7 +86,7 @@ def compute_metrics(df_predictions_inference: pd.DataFrame)->dict:
     )
     return metrics
 
-def main(args: HearWiseArgs)->None:
+def main(args: HearWiseArgs)->None:        
     models = {}
     # Get model weights
     if args.use_x3d:
@@ -101,6 +103,16 @@ def main(args: HearWiseArgs)->None:
     # Load API key
     hugging_face_api_key = load_api_keys(args.hugging_face_api_key_path)['HUGGING_FACE_API_KEY']
     
+    input_df = pd.read_csv(args.data_path, sep='α')
+    if 'examen' in args.eval_granularity and 'Examen_ID' not in input_df.columns:
+        raise ValueError("Examen_ID column is required for examen granularity evaluation")
+    
+    # Initialize model metrics dictionary
+    model_metrics = {
+        model: {
+            granularity: {} for granularity in args.eval_granularity
+        } for model in models
+    }
     # Run evaluation pipeline for each model
     for model in models:
         print(f"Running evaluation for {model} model")
@@ -120,16 +132,36 @@ def main(args: HearWiseArgs)->None:
         df_predictions_inference = perform_inference(config=config, split='inference', log_wandb=False)
         
         # Compute metrics
-        metrics = compute_metrics(df_predictions_inference)
+        for granularity in args.eval_granularity:
+            print(f"Computing {granularity} metrics for {model} model")
+            if granularity == 'examen':
+                # Sort by 'FileName' in alphabetical order
+                df_predictions_inference.rename(columns={'filename': 'FileName'}, inplace=True)
+                df_predictions_inference_sorted = df_predictions_inference.sort_values(by='FileName')
+                input_df_sorted = input_df.sort_values(by='FileName')
+                
+                merged_df = pd.merge(input_df_sorted, df_predictions_inference_sorted, on='FileName')
+                
+                # Compute mean logits based on 'Examen_ID'
+                df_grouped = merged_df.groupby('Examen_ID').agg({
+                    'y_hat': 'mean',
+                    'y_true': 'first'  # Assuming y_true is the same for the same Examen_ID
+                }).reset_index()
     
-        model_metrics = {
-            model: metrics
-        }
+                # Use the grouped DataFrame for metric computation                
+                metrics = compute_metrics(df_grouped)
+                
+            elif granularity == 'video':
+                metrics = compute_metrics(df_predictions_inference)
+        
+            # Store metrics
+            model_metrics[model][granularity] = metrics
         
         pprint(model_metrics)
         
-        with open(os.path.join(args.output_folder, f"{model}_metrics.json"), "w") as f:
-            json.dump(model_metrics, f, indent=4)
+    # Save metrics to JSON file
+    with open(os.path.join(args.output_folder, f"deeprv_evaluation_metrics.json"), "w") as f:
+        json.dump(model_metrics, f, indent=4)
     
     
 if __name__ == "__main__":
