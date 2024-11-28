@@ -3,7 +3,8 @@
 
 ## 🚀 Features
 
-- X3D-based multilabel classification model for video (binary classification)
+- X3D-based multilabel classification model for video (RV function binary classification)
+- MViT-based multilabel classification model for video (RV function binary classification)
 - Dockerized deployment for easy setup and execution
 - Configurable pipeline for flexible usage
 - CPU & GPU support for accelerated processing

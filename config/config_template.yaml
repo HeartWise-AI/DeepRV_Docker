@@ -1,5 +1,5 @@
-model_name: x3d_m 
-num_epochs: 20
+model_name:  # overwritten by heartwise.config
+num_epochs: 20 
 output_dir: outputs # overwritten by heartwise.config
 model_path: best.pt # overwritten by heartwise.config
 data_filename: data.csv # overwritten by heartwise.config
@@ -8,13 +8,13 @@ datapoint_loc_label: FileName
 use_amp: true
 mean: [112.24039459228516,112.24039459228516, 112.24039459228516]
 std: [39.012229919433594,39.012229919433594,39.012229919433594]
-frames: 72
-device: cuda # overwritten by heartwise.config
+frames:  # overwritten by heartwise.config
+device:  # overwritten by heartwise.config
 period: 2
 pretrained: false
 seed: 0
-num_workers: 8 # overwritten by heartwise.config
-batch_size: 4 # overwritten by heartwise.config
+num_workers:  # overwritten by heartwise.config
+batch_size:  # overwritten by heartwise.config
 label_smoothing: null
 label_smoothing_value: null
 class_weights: null
@@ -23,7 +23,7 @@ task: classification
 num_classes: 1
 run_test: true
 rand_augment: false
-resize: 256
+resize:  # overwritten by heartwise.config
 apply_mask: false
 view_count: null
 save_best: loss

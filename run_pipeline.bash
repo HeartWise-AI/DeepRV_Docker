@@ -22,7 +22,7 @@ output_folder=$(get_param "output_folder")
 hugging_face_api_key_path=$(get_param "hugging_face_api_key_path")
 use_x3d=$(get_param "use_x3d")
 use_mvit=$(get_param "use_mvit")
-preprocessing_n_workers=$(get_param "preprocessing_n_workers")
+num_workers=$(get_param "num_workers")
 video_path=$(get_param "video_path")
 
 # Overwrite mode by command line argument
@@ -62,7 +62,7 @@ run_pipeline() {
         --use_x3d $use_x3d \
         --use_mvit $use_mvit \
         --video_path $video_path \
-        --preprocessing_n_workers $preprocessing_n_workers
+        --num_workers $num_workers \
 }
 
 # Main execution based on mode
