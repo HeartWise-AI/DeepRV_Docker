@@ -20,7 +20,7 @@ label_smoothing_value: null
 class_weights: null
 loss: bce_logit_loss
 task: classification
-num_classes: 1
+num_classes:  # overwritten by heartwise.config
 run_test: true
 rand_augment: false
 resize:  # overwritten by heartwise.config
