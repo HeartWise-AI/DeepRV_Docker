@@ -1,10 +1,23 @@
 # DeepRV_Docker
 
+## Table of Contents
+- 🚀 [Features](#features)
+- 🛠️ [Installation](#installation)
+- 📄 [Usage](#usage)
+- 🐳 [Docker](#docker)
+- 🤝 [Contributing](#contributing)
+- 📚 [Citation](#citation)
 
 ## 🚀 Features
 
-- X3D-based multilabel classification model for video (RV function binary classification)
-- MViT-based multilabel classification model for video (RV function binary classification)
+- 1. X3D-based multilabel classification model for video (RV function binary classification) 
+   Request access to the model on [HuggingFace](https://huggingface.co/heartwise/DeepRV_x3d) 🤖
+- 2. MViT-based multilabel classification model for video (RV function binary classification) 
+   Request access to the model on [HuggingFace](https://huggingface.co/heartwise/DeepRV_mvit) 🤖
+- 3. Swin3D-based binary classification model for video (Angio classification) 
+   Request access to the model on [HuggingFace](https://huggingface.co/heartwise/DeepRV_swin3d_s_angio_video_classifier) 🤖
+- 4. Swin3D-based binary classification model for video (Coronary Dominance classification)
+   Request access to the model on [HuggingFace](https://huggingface.co/heartwise/DeepRV_swin3d_s_coronary_dominance) 🤖
 - Generate examen-based and video-based metrics (AUC, Accuracy, Sensitivity, Specificity, F1-score)
 - Dockerized deployment for easy setup and execution
 - Configurable pipeline for flexible usage
@@ -14,13 +27,13 @@
 
 1. 📥 Clone the repository:
    ```
-   git clone https://github.com/HeartWise-AI/DeepECG_Docker.git
-   cd DeepECG_Docker
+   git clone https://github.com/HeartWise-AI/DeepRV_Docker.git
+   cd DeepRV_Docker
    ```
 
 2. 🔑 Set up your HuggingFace API key:
    - Create a HuggingFace account if you don't have one yet
-   - Ask for access to the DeepECG models needed in the [heartwise-ai/DeepECG](https://huggingface.co/collections/heartwise/deepecg-models-66ce09c7d620749ad819fa0d) repository
+   - Ask for access to the DeepRV models needed in the [heartwise-ai/DeepRV](https://huggingface.co/collections/heartwise/deeprv-models-66ce09c7d620749ad819fa0d) repository
    - Create an API key in the HuggingFace website in `User Settings` -> `API Keys` -> `Create API Key` -> `Read`
    - Add your API key in the following format in the `api_key.json` file in the root directory:
      ```json
@@ -42,7 +55,7 @@
 
 ## 📄 Usage
 1. Prepare your input csv file with the following columns: `FileName`, `Outcome`, `Split`, `Examen_ID` (see inputs/data_rows_template.csv for reference) 
-   - Note that the `Examen_ID` column is optional for video-based metrics computation, but it is mendatory for examen-based metrics computation
+   - Note that the `Examen_ID` column is optional for video-based metrics computation, but it is mandatory for examen-based metrics computation
 2. Prepare you pipeline configuration file (see heartwise.config for reference) - **Recommended to use default config and change only the necessary parameters**
    - `model_device`: GPU device to use for inference (e.g. `cuda:0` or `cuda:1`)
    - `data_path`: Path to the input csv file **without the filename**
