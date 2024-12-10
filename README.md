@@ -56,6 +56,8 @@
 ## 📄 Usage
 1. Prepare your input csv file with the following columns: `FileName`, `Outcome`, `Split`, `Examen_ID` (see inputs/data_rows_template.csv for reference) 
    - Note that the `Examen_ID` column is optional for video-based metrics computation, but it is mandatory for examen-based metrics computation
+   - The `FileName` column should contain the path to the DICOM files if the input is DICOM, or the path to the AVI files if the input is AVI
+      - example: `/app/videos/path_to_video1.dcm` or `/app/videos/path_to_video1.avi`
 2. Prepare you pipeline configuration file (see heartwise.config for reference) - **Recommended to use default config and change only the necessary parameters**
    - `model_device`: GPU device to use for inference (e.g. `cuda:0` or `cuda:1`)
    - `data_path`: Path to the input csv file **without the filename**
@@ -67,6 +69,7 @@
    - `use_mvit`: Boolean to use MViT model
    - `video_path`: Path to the videos folder
    - `num_workers`: Number of workers for the dataloader
+   - `preprocessing_workers`: Number of workers for the preprocessing (DICOM to AVI conversion - unused if input is AVI)
    - `eval_granularity`: Granularity of the evaluation **(options: `video`, `examen`, `video examen`)**
 
 ## 🐳 Docker
