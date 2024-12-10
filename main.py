@@ -1,11 +1,19 @@
 import os
+import cv2
 import sys
 import yaml
 import json
+import shutil
 import logging
+import pydicom
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+from tqdm import tqdm
 from pathlib import Path
+from typing import Optional
 
 from utils.parser import HearWiseArgs
 from utils.constants import (
@@ -16,6 +24,7 @@ from utils.constants import (
 from heartwise_statplots.utils import HuggingFaceWrapper
 from heartwise_statplots.utils.api import load_api_keys
 from heartwise_statplots.metrics import MetricsComputer, ClassificationMetrics
+
 
 # Configure logging
 logging.basicConfig(
@@ -28,10 +37,77 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 # Add the parent directory to the system path using pathlib
 orion_path = Path(__file__).parent / 'Orion'
 sys.path.append(str(orion_path))
 from orion.utils.video_training_and_eval import perform_inference
+
+
+def normalize_pixel_array(pixel_array: np.ndarray)->np.ndarray:
+    """
+    Normalize the pixel array to the 0-255 range and convert to uint8.
+    """
+    pixel_min = np.min(pixel_array)
+    pixel_max = np.max(pixel_array)
+    
+    if pixel_max == pixel_min:
+        # Avoid division by zero; return a zero array
+        return np.zeros(pixel_array.shape, dtype=np.uint8)
+
+    # Normalize to 0-255
+    normalized = (pixel_array - pixel_min) / (pixel_max - pixel_min)
+    normalized = (normalized * 255).astype(np.uint8)
+    return normalized
+
+
+def convert_dicom_to_avi(
+    input_path: str, 
+    output_path: str
+)->Optional[str]:
+    """
+    Converts DICOM videos to AVI format.
+    
+    Args:
+        input_path (str): The path to the DICOM file.
+    
+    Returns:
+        str: The path to the AVI file.
+    """
+    ds = pydicom.dcmread(input_path)
+    
+    # Create output filename
+    output_filename = Path(input_path).stem + '.avi'
+    output_path = Path(output_path) / output_filename
+    
+    # Extract FPS; ensure the DICOM tag exists
+    frame_rate_tag = (0x08, 0x2144)  # This tag may vary depending on the DICOM file
+    if frame_rate_tag in ds:
+        fps = float(ds[frame_rate_tag].value)
+    else:
+        fps = 30.0  # Default FPS if not specified
+        
+    try:
+        photometrics = ds.PhotometricInterpretation
+        if photometrics not in ['MONOCHROME1', 'MONOCHROME2', 'RGB']:
+            print(ValueError(f"Unsupported Photometric Interpretation: {photometrics} - with shape{ds.pixel_array.shape}"))
+            return
+    except:
+        print(f"Error in reading {input_path}")
+        return
+    
+    conversion_fn = cv2.COLOR_GRAY2BGR if photometrics == 'MONOCHROME1' or photometrics == 'MONOCHROME2' else cv2.COLOR_RGB2BGR
+
+    fourcc = cv2.VideoWriter_fourcc("M", "J", "P", "G")
+    out = cv2.VideoWriter(str(output_path), fourcc, fps, ds.pixel_array.shape[1:3])
+    
+    for frame in ds.pixel_array:
+        # frame = normalize_pixel_array(frame) TODO: No pixel array normalization for now.
+        frame = cv2.cvtColor(frame, conversion_fn)
+        out.write(frame)
+    
+    out.release()
+    return str(output_path)
 
 
 def get_model_weights(
@@ -90,6 +166,7 @@ def setup_orion_config(
     config.update(default_model_config)
     return config
 
+
 def get_model_path(
     model: str, 
     hugging_face_api_key: str
@@ -139,8 +216,32 @@ def compute_metrics(df_predictions_inference: pd.DataFrame)->dict:
     )
     return metrics
 
+
+def process_dicom_batch(dicom_batch):
+    """
+    Process a batch of DICOM files in parallel.
+    
+    Args:
+        dicom_batch (tuple): Tuple containing (dicom_filepath, output_path)
+    
+    Returns:
+        tuple: (original_path, new_path) or (original_path, None) if conversion failed
+    """
+    dicom_filepath, output_path = dicom_batch
+    try:
+        avi_filepath = convert_dicom_to_avi(input_path=dicom_filepath, output_path=output_path)
+        return (dicom_filepath, avi_filepath)
+    except Exception as e:
+        logger.error(f"Error converting {dicom_filepath}: {str(e)}")
+        return (dicom_filepath, None)
+
+
 def main(args: HearWiseArgs)->None:   
     try:     
+        # Define tmp dir
+        tmp_dir = Path('/app/tmp')
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        
         # Load API key
         api_keys = load_api_keys(args.hugging_face_api_key_path)
         hugging_face_api_key = api_keys.get('HUGGING_FACE_API_KEY')
@@ -159,9 +260,38 @@ def main(args: HearWiseArgs)->None:
         if 'examen' in args.eval_granularity and 'Examen_ID' not in input_df.columns:
             logger.error("Examen_ID column is missing from the input data.")
             raise KeyError("Examen_ID column is required for examen granularity evaluation.")
-    
+        # Sort input dataframe by 'FileName'
         input_df_sorted = input_df.sort_values(by='FileName')
         
+
+        # Convert DICOM videos to AVI using multiprocessing
+        logging.info("Check for DICOM files and convert to AVI")
+        dicom_filepaths = input_df_sorted[input_df_sorted['FileName'].apply(lambda x: x.endswith('.dcm'))]['FileName'].tolist()
+        logger.info(f"{len(dicom_filepaths)} DICOM files found in input dataframe.")
+        
+        if len(dicom_filepaths) > 0:
+            # Prepare batches for parallel processing
+            num_processes = min(args.preprocessing_workers, mp.cpu_count())  # Use available CPU cores
+            print(f"Number of processes: {num_processes}")
+            dicom_batches = [(filepath, tmp_dir) for filepath in dicom_filepaths]
+            
+            converted_count = 0
+            with ProcessPoolExecutor(max_workers=num_processes) as executor:
+                futures = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
+                
+                # Process results as they complete
+                for future in tqdm(as_completed(futures), total=len(dicom_filepaths), desc="Converting DICOM to AVI"):
+                    original_path, new_path = future.result()
+                    if new_path:
+                        input_df_sorted.loc[input_df_sorted['FileName'] == original_path, 'FileName'] = new_path
+                        converted_count += 1
+            
+            logger.info(f"Converted {converted_count} DICOM files to AVI format in {tmp_dir}")
+            
+        # save new input dataframe
+        input_df_sorted.to_csv(tmp_dir / "input_df_sorted.csv", index=False, sep='α')
+        args.data_path = tmp_dir / "input_df_sorted.csv"
+            
             
         # Initialize DeepRV models
         deeprv_models = {}        
@@ -193,6 +323,7 @@ def main(args: HearWiseArgs)->None:
         )    
         logger.info(f"Angio updated config: {angio_updated_config}")
         
+ 
         # Run inference for Angio classifier
         df_predicted_views = perform_inference(
             config=angio_updated_config, 
@@ -226,11 +357,11 @@ def main(args: HearWiseArgs)->None:
             raise ValueError(f"Total predicted views ({total}) do not match the number of input views ({len(input_df_sorted)})")
         
         # Save filtered input dataframe to csv for DeepRV and Coronary Dominance classifier
-        predicted_views_path = Path(input_path).parent / "predicted_views.csv"
+        predicted_views_path = tmp_dir / "predicted_views.csv"
         input_df_sorted.to_csv(predicted_views_path, index=False, sep='α')
         args.data_path = predicted_views_path
               
-              
+
         # Initialize Coronary Dominance classifier
         coronary_classifier_hugging_face_model_name = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['hugging_face_model_name']
         coronary_classifier_config = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['config']
@@ -319,10 +450,18 @@ def main(args: HearWiseArgs)->None:
                 json.dump(model_metrics, f, indent=4)
             logger.info(f"Metrics successfully saved to {output_metrics_path}")
         except IOError as e:
+            if tmp_dir.exists():
+                shutil.rmtree(tmp_dir)
             logger.error(f"Failed to write metrics to {output_metrics_path}: {e}")
             raise
+        
+        # Remove tmp dir
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
   
     except Exception as e:
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
         logger.exception(f"An error occurred during execution: {e}")
         sys.exit(1)       
     
