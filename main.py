@@ -102,7 +102,7 @@ def convert_dicom_to_avi(
     out = cv2.VideoWriter(str(output_path), fourcc, fps, ds.pixel_array.shape[1:3])
     
     for frame in ds.pixel_array:
-        frame = normalize_pixel_array(frame)
+        # frame = normalize_pixel_array(frame) TODO: No pixel array normalization for now.
         frame = cv2.cvtColor(frame, conversion_fn)
         out.write(frame)
     
