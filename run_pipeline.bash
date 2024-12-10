@@ -23,6 +23,7 @@ hugging_face_api_key_path=$(get_param "hugging_face_api_key_path")
 use_x3d=$(get_param "use_x3d")
 use_mvit=$(get_param "use_mvit")
 num_workers=$(get_param "num_workers")
+preprocessing_workers=$(get_param "preprocessing_workers")
 video_path=$(get_param "video_path")
 eval_granularity=$(get_param "eval_granularity")
 
@@ -64,6 +65,7 @@ run_pipeline() {
         --use_mvit $use_mvit \
         --video_path $video_path \
         --num_workers $num_workers \
+        --preprocessing_workers $preprocessing_workers \
         --eval_granularity $eval_granularity
 }
 

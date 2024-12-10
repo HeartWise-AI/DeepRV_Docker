@@ -50,7 +50,7 @@
 
 5. 🚀 Run the docker container: (see [Docker](#docker) for more details)
    ```
-   docker run --gpus "device=0" -v $(pwd)/inputs:/app/inputs -v $(pwd)/outputs:/app/outputs -v $(pwd)/videos:/app/videos -i deeprv-docker --csv_file_name data_rows_template.csv
+   docker run --gpus "device=0" --shm-size=20g -v $(pwd)/inputs:/app/inputs -v $(pwd)/outputs:/app/outputs -v $(pwd)/videos:/app/videos -i deeprv-docker --csv_file_name data_rows_template.csv
    ```
 
 ## 📄 Usage
