@@ -15,7 +15,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Clone the Orion repository and install it
-RUN git clone https://github.com/HeartWise-AI/Orion.git -b jd
+RUN git clone https://github.com/HeartWise-AI/Orion.git -b deeprv
 
 # Copy the rest of the application code into the container
 COPY config/ config/
