@@ -1,5 +1,5 @@
 FileNameαOutcomeαSplitαExamen_ID
-path_to_video1.aviα1αinferenceα123456
-path_to_video2.aviα0αinferenceα123456
-path_to_video3.aviα1αinferenceα123457
-path_to_video4.aviα0αinferenceα123457
+/app/videos/path_to_video1.aviα1αinferenceα123456
+/app/videos/path_to_video2.dcmα0αinferenceα123456
+/app/videos/path_to_video3.aviα1αinferenceα123457
+/app/videos/path_to_video4.dcmα0αinferenceα123457
