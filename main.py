@@ -9,7 +9,7 @@ import pydicom
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 
 from tqdm import tqdm
 from pathlib import Path
@@ -205,8 +205,8 @@ def get_model_path(
         str: The local file system path where the model weights are stored.
     """
     # Get model weights
-    model_weights_path = get_model_weights(model, hugging_face_api_key)
-    pt_file = next((f for f in os.listdir(model_weights_path) if f.endswith('.pt')), None)
+    model_weights_path: str = get_model_weights(model, hugging_face_api_key)
+    pt_file: str = next((f for f in os.listdir(model_weights_path) if f.endswith('.pt')), None)
     if not pt_file:
         raise ValueError("No .pt file found in the directory")    
     return os.path.join(model_weights_path, pt_file)
@@ -222,8 +222,8 @@ def compute_metrics(df_predictions_inference: pd.DataFrame)->dict:
     Returns:
         dict: A dictionary containing the computed metrics.
     """    
-    y_pred = df_predictions_inference['y_hat'].to_numpy().astype(np.float64)
-    y_true = df_predictions_inference['y_true'].to_numpy().astype(np.int64)
+    y_pred: np.ndarray = df_predictions_inference['y_hat'].to_numpy().astype(np.float64)
+    y_true: np.ndarray = df_predictions_inference['y_true'].to_numpy().astype(np.int64)
     metrics = MetricsComputer.compute_classification_metrics(
         y_true=y_true,
         y_pred=y_pred,
@@ -252,7 +252,7 @@ def process_dicom_batch(dicom_batch):
     """
     dicom_filepath, output_path = dicom_batch
     try:
-        avi_filepath = convert_dicom_to_avi(input_path=dicom_filepath, output_path=output_path)
+        avi_filepath: str = convert_dicom_to_avi(input_path=dicom_filepath, output_path=output_path)
         return (dicom_filepath, avi_filepath)
     except Exception as e:
         logger.error(f"Error converting {dicom_filepath}: {str(e)}")
@@ -262,24 +262,24 @@ def process_dicom_batch(dicom_batch):
 def main(args: HearWiseArgs)->None:   
     try:     
         # Define tmp dir
-        tmp_dir = Path('/app/tmp')
+        tmp_dir: Path = Path('/app/tmp')
         tmp_dir.mkdir(parents=True, exist_ok=True)
         
         # Load API key
-        api_keys = load_api_keys(args.hugging_face_api_key_path)
-        hugging_face_api_key = api_keys.get('HUGGING_FACE_API_KEY')
+        api_keys: dict = load_api_keys(args.hugging_face_api_key_path)
+        hugging_face_api_key: str = api_keys.get('HUGGING_FACE_API_KEY')
         if not hugging_face_api_key:
             logger.error("HUGGING_FACE_API_KEY not found in the provided API keys file.")
             raise KeyError("HUGGING_FACE_API_KEY not found.")
     
     
         # Read input dataframe
-        input_path = Path(args.data_path)
+        input_path: Path = Path(args.data_path)
         if not input_path.exists():
             logger.error(f"Data file not found at: {input_path}")
             raise FileNotFoundError(f"Data file not found at: {input_path}")
 
-        input_df = pd.read_csv(input_path, sep='α')
+        input_df: pd.DataFrame = pd.read_csv(input_path, sep='α')
         if 'examen' in args.eval_granularity and 'Examen_ID' not in input_df.columns:
             logger.error("Examen_ID column is missing from the input data.")
             raise KeyError("Examen_ID column is required for examen granularity evaluation.")
@@ -294,12 +294,12 @@ def main(args: HearWiseArgs)->None:
         
         if len(dicom_filepaths) > 0:
             # Prepare batches for parallel processing
-            num_processes = min(args.preprocessing_workers, mp.cpu_count())  # Use available CPU cores
-            dicom_batches = [(filepath, tmp_dir) for filepath in dicom_filepaths]
+            num_processes: int = min(args.preprocessing_workers, mp.cpu_count())  # Use available CPU cores
+            dicom_batches: list[tuple[str, str]] = [(filepath, tmp_dir) for filepath in dicom_filepaths]
             
-            converted_count = 0
+            converted_count: int = 0
             with ProcessPoolExecutor(max_workers=num_processes) as executor:
-                futures = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
+                futures: list[Future] = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
                 
                 # Process results as they complete
                 logger.info(f"Processing {len(dicom_filepaths)} DICOM files...")
@@ -319,20 +319,20 @@ def main(args: HearWiseArgs)->None:
         # Initialize DeepRV models
         deeprv_models = {}        
         if args.use_x3d:
-            hugging_face_model_name = MODEL_MAPPING['x3d']['hugging_face_model_name']
-            config = MODEL_MAPPING['x3d']['config']
+            hugging_face_model_name: str = MODEL_MAPPING['x3d']['hugging_face_model_name']
+            config: dict = MODEL_MAPPING['x3d']['config']
             deeprv_models[hugging_face_model_name] = config
             logger.info(f"Using {hugging_face_model_name} model")
         if args.use_mvit:
-            hugging_face_model_name = MODEL_MAPPING['mvit']['hugging_face_model_name']
-            config = MODEL_MAPPING['mvit']['config']
+            hugging_face_model_name: str = MODEL_MAPPING['mvit']['hugging_face_model_name']
+            config: dict = MODEL_MAPPING['mvit']['config']
             deeprv_models[hugging_face_model_name] = config
             logger.info(f"Using {hugging_face_model_name} model")
 
 
         # Initialize Angio classifier
-        angio_classifier_hugging_face_model_name = MODEL_MAPPING['swin3d_s_angio_video_classifier']['hugging_face_model_name']
-        angio_classifier_config = MODEL_MAPPING['swin3d_s_angio_video_classifier']['config']
+        angio_classifier_hugging_face_model_name: str = MODEL_MAPPING['swin3d_s_angio_video_classifier']['hugging_face_model_name']
+        angio_classifier_config: dict = MODEL_MAPPING['swin3d_s_angio_video_classifier']['config']
         logger.info(f"Using {angio_classifier_hugging_face_model_name} model")
         args.model_path = get_model_path(
             model=angio_classifier_hugging_face_model_name, 
@@ -340,7 +340,7 @@ def main(args: HearWiseArgs)->None:
         )
         
         # Setup orion config for Angio classifier
-        angio_updated_config = setup_orion_config(
+        angio_updated_config: dict = setup_orion_config(
             args=args, 
             default_model_config=angio_classifier_config
         )    
@@ -348,20 +348,20 @@ def main(args: HearWiseArgs)->None:
         
  
         # Run inference for Angio classifier
-        df_predicted_views = perform_inference(
+        df_predicted_views: pd.DataFrame = perform_inference(
             config=angio_updated_config, 
             split='inference', 
             log_wandb=False
         )
         df_predicted_views.rename(columns={'filename': 'FileName'}, inplace=True)
         df_predicted_views_sorted = df_predicted_views.sort_values(by='FileName')
-        count_lad = (df_predicted_views_sorted['argmax_class'] == AngioClasses.LAD.value).sum()
-        count_mid_rca = (df_predicted_views_sorted['argmax_class'] == AngioClasses.MID_RCA.value).sum()
+        count_lad: int = (df_predicted_views_sorted['argmax_class'] == AngioClasses.LAD.value).sum()
+        count_mid_rca: int = (df_predicted_views_sorted['argmax_class'] == AngioClasses.MID_RCA.value).sum()
         logger.info(f"LAD count: {count_lad}")
         logger.info(f"MID_RCA count: {count_mid_rca}")
         
         # Filter predicted views for LAD or MID_RCA
-        df_predicted_views_sorted = df_predicted_views_sorted[
+        df_predicted_views_sorted: pd.DataFrame = df_predicted_views_sorted[
             (df_predicted_views_sorted['argmax_class'] == AngioClasses.LAD.value) |
             (df_predicted_views_sorted['argmax_class'] == AngioClasses.MID_RCA.value)
         ]
@@ -371,7 +371,7 @@ def main(args: HearWiseArgs)->None:
         input_df_sorted = input_df_sorted[input_df_sorted['FileName'].isin(df_predicted_views_sorted['FileName'])]
  
         # Check if the number of predicted views matches the number of input views
-        total = count_lad + count_mid_rca
+        total: int = count_lad + count_mid_rca
         if total != len(df_predicted_views_sorted):
             logger.error(f"Total predicted views ({total}) do not match the number of predicted views ({len(df_predicted_views_sorted)})")
             raise ValueError(f"Total predicted views ({total}) do not match the number of predicted views ({len(df_predicted_views_sorted)})")
@@ -380,14 +380,14 @@ def main(args: HearWiseArgs)->None:
             raise ValueError(f"Total predicted views ({total}) do not match the number of input views ({len(input_df_sorted)})")
         
         # Save filtered input dataframe to csv for DeepRV and Coronary Dominance classifier
-        predicted_views_path = tmp_dir / "predicted_views.csv"
+        predicted_views_path: Path = tmp_dir / "predicted_views.csv"
         input_df_sorted.to_csv(predicted_views_path, index=False, sep='α')
         args.data_path = predicted_views_path
               
 
         # Initialize Coronary Dominance classifier
-        coronary_classifier_hugging_face_model_name = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['hugging_face_model_name']
-        coronary_classifier_config = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['config']
+        coronary_classifier_hugging_face_model_name: str = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['hugging_face_model_name']
+        coronary_classifier_config: dict = MODEL_MAPPING['swin3d_s_coronary_dominance_classifier']['config']
         logger.info(f"Using {coronary_classifier_hugging_face_model_name} model")
         args.model_path = get_model_path(
             model=coronary_classifier_hugging_face_model_name, 
@@ -395,14 +395,14 @@ def main(args: HearWiseArgs)->None:
         )
         
         # Setup orion config for Coronary Dominance classifier
-        coronary_updated_config = setup_orion_config(
+        coronary_updated_config: dict = setup_orion_config(
             args=args, 
             default_model_config=coronary_classifier_config
         )
         logger.info(f"Coronary updated config: {coronary_updated_config}")
 
         # Run inference for Coronary Dominance classifier
-        df_predicted_views = perform_inference(
+        df_predicted_views: pd.DataFrame = perform_inference(
             config=coronary_updated_config, 
             split='inference', 
             log_wandb=False
@@ -410,7 +410,7 @@ def main(args: HearWiseArgs)->None:
 
 
         # Initialize model metrics dictionary
-        model_metrics = {
+        model_metrics: dict[str, dict[str, dict[str, float]]] = {
             model: {
                 granularity: {} for granularity in args.eval_granularity
             } for model in deeprv_models
@@ -425,14 +425,14 @@ def main(args: HearWiseArgs)->None:
             )
             
             # Setup orion config
-            config = setup_orion_config(
+            config: dict = setup_orion_config(
                 args=args, 
                 default_model_config=deeprv_models[model]
             )
             logger.info(f"DeepRV updated config: {config}")
             
             # Run inference
-            df_predictions_inference = perform_inference(
+            df_predictions_inference: pd.DataFrame = perform_inference(
                 config=config, 
                 split='inference', 
                 log_wandb=False
@@ -446,19 +446,19 @@ def main(args: HearWiseArgs)->None:
                     df_predictions_inference.rename(columns={'filename': 'FileName'}, inplace=True)
                     df_predictions_inference_sorted = df_predictions_inference.sort_values(by='FileName')
                     
-                    merged_df = pd.merge(input_df_sorted, df_predictions_inference_sorted, on='FileName')
+                    merged_df: pd.DataFrame = pd.merge(input_df_sorted, df_predictions_inference_sorted, on='FileName')
                     
                     # Compute mean logits based on 'Examen_ID'
-                    df_grouped = merged_df.groupby('Examen_ID').agg({
+                    df_grouped: pd.DataFrame = merged_df.groupby('Examen_ID').agg({
                         'y_hat': 'mean',
                         'y_true': 'first'  # Assuming y_true is the same for the same Examen_ID
                     }).reset_index()
         
                     # Use the grouped DataFrame for metric computation   
-                    metrics = compute_metrics(df_grouped)
+                    metrics: dict = compute_metrics(df_grouped)
                     
                 elif granularity == 'video':
-                    metrics = compute_metrics(df_predictions_inference)
+                    metrics: dict = compute_metrics(df_predictions_inference)
             
                 # Store metrics
                 model_metrics[model][granularity] = metrics
