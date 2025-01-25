@@ -18,7 +18,8 @@ from typing import Optional
 from utils.parser import HearWiseArgs
 from utils.constants import (
     MODEL_MAPPING,
-    AngioClasses
+    AngioClasses,
+    DICOM_TAGS
 )
 
 from heartwise_statplots.utils import HuggingFaceWrapper
@@ -74,40 +75,62 @@ def convert_dicom_to_avi(
     Returns:
         str: The path to the AVI file.
     """
-    ds = pydicom.dcmread(input_path)
+    # Read DICOM file
+    ds: pydicom.Dataset = pydicom.dcmread(input_path)
+
+    # get pixel array
+    video: np.ndarray = ds.pixel_array
     
-    # Create output filename
-    output_filename = Path(input_path).stem + '.avi'
-    output_path = Path(output_path) / output_filename
+    # Insure extracted array is 3D
+    if len(video.shape) != 3:
+        print(ValueError(f"Extracted video`shape is not 3D: {video.shape} -  {input_path}")) 
+        return None
+    
+    # get frame height and width
+    frame_height: int = ds[DICOM_TAGS['frame_height']].value
+    frame_width: int = ds[DICOM_TAGS['frame_width']].value
+    
+    # Insure consistence between dicom info and extracted video
+    if frame_height != video.shape[1]:
+        print(ValueError(f"Dicom video height {frame_height} does not match extracted video`shape: {video.shape[1]} -  {input_path}")) 
+        return None
+    
+    if frame_width != video.shape[2]:
+        print(ValueError(f"Dicom video width {frame_width} does not match extracted video`shape: {video.shape[2]} -  {input_path}")) 
+        return None
     
     # Extract FPS; ensure the DICOM tag exists
-    frame_rate_tag = (0x08, 0x2144)  # This tag may vary depending on the DICOM file
-    if frame_rate_tag in ds:
-        fps = float(ds[frame_rate_tag].value)
-    else:
-        fps = 30.0  # Default FPS if not specified
+    fps: float = 30.0  # Default FPS if not specified
+    if DICOM_TAGS['frame_rate'] in ds:
+        fps = float(ds[DICOM_TAGS['frame_rate']].value)      
         
     try:
-        photometrics = ds.PhotometricInterpretation
+        photometrics: str = ds.PhotometricInterpretation
         if photometrics not in ['MONOCHROME1', 'MONOCHROME2', 'RGB']:
-            print(ValueError(f"Unsupported Photometric Interpretation: {photometrics} - with shape{ds.pixel_array.shape}"))
-            return
+            print(ValueError(f"Unsupported Photometric Interpretation: {photometrics} - with shape{video.shape}"))
+            return None
     except:
         print(f"Error in reading {input_path}")
-        return
+        return None
     
-    conversion_fn = cv2.COLOR_GRAY2BGR if photometrics == 'MONOCHROME1' or photometrics == 'MONOCHROME2' else cv2.COLOR_RGB2BGR
 
-    fourcc = cv2.VideoWriter_fourcc("M", "J", "P", "G")
-    out = cv2.VideoWriter(str(output_path), fourcc, fps, ds.pixel_array.shape[1:3])
+    output_filename: Path = Path(input_path).stem + '.avi'
+    output_path: str = str(Path(output_path) / output_filename)
     
+    # Create video writer
+    fourcc: int = cv2.VideoWriter_fourcc("M", "J", "P", "G")
+    out: cv2.VideoWriter = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+        
+    conversion_fn: int = cv2.COLOR_GRAY2BGR if photometrics == 'MONOCHROME1' or photometrics == 'MONOCHROME2' else cv2.COLOR_RGB2BGR    
     for frame in ds.pixel_array:
         # frame = normalize_pixel_array(frame) TODO: No pixel array normalization for now.
-        frame = cv2.cvtColor(frame, conversion_fn)
+        frame: np.ndarray = cv2.cvtColor(frame, conversion_fn)
         out.write(frame)
     
+    # Release video writer
     out.release()
-    return str(output_path)
+
+    return output_path
 
 
 def get_model_weights(
@@ -272,7 +295,6 @@ def main(args: HearWiseArgs)->None:
         if len(dicom_filepaths) > 0:
             # Prepare batches for parallel processing
             num_processes = min(args.preprocessing_workers, mp.cpu_count())  # Use available CPU cores
-            print(f"Number of processes: {num_processes}")
             dicom_batches = [(filepath, tmp_dir) for filepath in dicom_filepaths]
             
             converted_count = 0
@@ -280,6 +302,7 @@ def main(args: HearWiseArgs)->None:
                 futures = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
                 
                 # Process results as they complete
+                logger.info(f"Processing {len(dicom_filepaths)} DICOM files...")
                 for future in tqdm(as_completed(futures), total=len(dicom_filepaths), desc="Converting DICOM to AVI"):
                     original_path, new_path = future.result()
                     if new_path:
