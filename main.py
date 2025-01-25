@@ -9,7 +9,11 @@ import pydicom
 import numpy as np
 import pandas as pd
 import multiprocessing as mp
-from concurrent.futures import Future, ProcessPoolExecutor, as_completed
+from concurrent.futures import (
+    Future, 
+    ProcessPoolExecutor, 
+    as_completed
+)
 
 from tqdm import tqdm
 from pathlib import Path
@@ -271,8 +275,7 @@ def main(args: HearWiseArgs)->None:
         if not hugging_face_api_key:
             logger.error("HUGGING_FACE_API_KEY not found in the provided API keys file.")
             raise KeyError("HUGGING_FACE_API_KEY not found.")
-    
-    
+        
         # Read input dataframe
         input_path: Path = Path(args.data_path)
         if not input_path.exists():
@@ -289,7 +292,7 @@ def main(args: HearWiseArgs)->None:
 
         # Convert DICOM videos to AVI using multiprocessing
         logging.info("Check for DICOM files and convert to AVI")
-        dicom_filepaths = input_df_sorted[input_df_sorted['FileName'].apply(lambda x: x.endswith('.dcm'))]['FileName'].tolist()
+        dicom_filepaths: list[str] = input_df_sorted[input_df_sorted['FileName'].apply(lambda x: x.endswith('.dcm'))]['FileName'].tolist()
         logger.info(f"{len(dicom_filepaths)} DICOM files found in input dataframe.")
         
         if len(dicom_filepaths) > 0:
@@ -298,6 +301,7 @@ def main(args: HearWiseArgs)->None:
             dicom_batches: list[tuple[str, str]] = [(filepath, tmp_dir) for filepath in dicom_filepaths]
             
             converted_count: int = 0
+            rows_to_discard: list[int] = []
             with ProcessPoolExecutor(max_workers=num_processes) as executor:
                 futures: list[Future] = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
                 
@@ -308,9 +312,17 @@ def main(args: HearWiseArgs)->None:
                     if new_path:
                         input_df_sorted.loc[input_df_sorted['FileName'] == original_path, 'FileName'] = new_path
                         converted_count += 1
+                    else:
+                        rows_to_discard.extend(
+                            input_df_sorted.index[input_df_sorted['FileName'] == original_path].tolist()
+                        )
             
             logger.info(f"Converted {converted_count} DICOM files to AVI format in {tmp_dir}")
             
+            input_df_sorted.drop(rows_to_discard, inplace=True)
+            input_df_sorted.reset_index(drop=True, inplace=True)
+            logger.info(f"Discarded {len(rows_to_discard)} rows - new dataframe length: {len(input_df_sorted)}")
+   
         # save new input dataframe
         input_df_sorted.to_csv(tmp_dir / "input_df_sorted.csv", index=False, sep='α')
         args.data_path = tmp_dir / "input_df_sorted.csv"
