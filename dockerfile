@@ -12,10 +12,14 @@ RUN apt-get update && \
 COPY requirements.txt .
 
 # Create a virtual environment and install required libraries
-RUN pip install -r requirements.txt
+RUN pip install uv
+RUN uv pip install -r requirements.txt --system
 
 # Clone the Orion repository and install it
 RUN git clone https://github.com/HeartWise-AI/Orion.git -b deeprv
+
+# Install HeartWise_StatPlots
+RUN pip install git+https://github.com/HeartWise-AI/HeartWise_StatPlots.git@dev
 
 # Copy the rest of the application code into the container
 COPY config/ config/
