@@ -61,3 +61,10 @@ class AngioClasses(Enum):
     STENT = 16
     STERNOTOMY = 17
     VALVE = 18
+    
+    
+DICOM_TAGS = {
+    'frame_height': (0x028, 0x0011),
+    'frame_width': (0x028, 0x0010),
+    'frame_rate': (0x08, 0x2144)
+}
