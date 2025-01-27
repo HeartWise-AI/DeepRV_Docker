@@ -15,4 +15,5 @@ zarr
 matplotlib
 seaborn
 torchmetrics
-git+https://github.com/HeartWise-AI/HeartWise_StatPlots.git@dev
+pylibjpeg>=2.0
+pylibjpeg-libjpeg>=2.1
