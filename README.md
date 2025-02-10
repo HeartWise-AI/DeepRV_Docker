@@ -33,7 +33,7 @@
 
 2. 🔑 Set up your HuggingFace API key:
    - Create a HuggingFace account if you don't have one yet
-   - Ask for access to the DeepRV models needed in the [heartwise-ai/DeepRV](https://huggingface.co/collections/heartwise/deeprv-models-66ce09c7d620749ad819fa0d) repository
+   - Ask for access to the DeepRV models needed in the [heartwise-ai/DeepRV](https://huggingface.co/collections/heartwise/deeprv-673b872dcdc852f69bee89f1) repository
    - Create an API key in the HuggingFace website in `User Settings` -> `API Keys` -> `Create API Key` -> `Read`
    - Add your API key in the following format in the `api_key.json` file in the root directory:
      ```json
