@@ -25,6 +25,7 @@ class HearWiseArgs:
         parser.add_argument('--hugging_face_api_key_path', help='Path to the Hugging Face API key', type=str, required=True)
         parser.add_argument('--use_x3d', help='Use X3d for video processing', type=HearWiseArgs.str2bool, required=True)
         parser.add_argument('--use_mvit', help='Use MViT for video processing', type=HearWiseArgs.str2bool, required=True)
+        parser.add_argument('--use_multicpu_dcm_preprocessing', help='Use multicpu for dcm preprocessing', type=HearWiseArgs.str2bool, required=True)
         parser.add_argument('--video_path', help='Path to the videos', type=str, required=True)
         parser.add_argument('--num_workers', help='Number of workers for the preprocessing', type=int, default=16)
         parser.add_argument('--preprocessing_workers', help='Number of workers for the preprocessing', type=int, default=16)
