@@ -289,19 +289,24 @@ def main(args: HearWiseArgs)->None:
         # Sort input dataframe by 'FileName'
         input_df_sorted = input_df.sort_values(by='FileName')
         
-
         # Convert DICOM videos to AVI using multiprocessing
         logging.info("Check for DICOM files and convert to AVI")
         dicom_filepaths: list[str] = input_df_sorted[input_df_sorted['FileName'].apply(lambda x: x.endswith('.dcm'))]['FileName'].tolist()
         logger.info(f"{len(dicom_filepaths)} DICOM files found in input dataframe.")
         
-        if len(dicom_filepaths) > 0:
+        if len(dicom_filepaths) == 0:
+            raise ValueError("No DICOM files found in input dataframe.")
+        
+        # Initialize conversion tracking variables
+        converted_count: int = 0
+        rows_to_discard: list[int] = []
+        
+        if args.use_multicpu_dcm_preprocessing:
+            logger.info("using multicpu DICOM preprocessing")
             # Prepare batches for parallel processing
-            num_processes: int = min(args.preprocessing_workers, mp.cpu_count())  # Use available CPU cores
-            dicom_batches: list[tuple[str, str]] = [(filepath, tmp_dir) for filepath in dicom_filepaths]
+            num_processes: int = min(args.preprocessing_workers, mp.cpu_count()) # Use available CPU cores
+            dicom_batches: list[tuple[str, str]] = [(filepath, str(tmp_dir)) for filepath in dicom_filepaths]
             
-            converted_count: int = 0
-            rows_to_discard: list[int] = []
             with ProcessPoolExecutor(max_workers=num_processes) as executor:
                 futures: list[Future] = [executor.submit(process_dicom_batch, batch) for batch in dicom_batches]
                 
@@ -316,17 +321,26 @@ def main(args: HearWiseArgs)->None:
                         rows_to_discard.extend(
                             input_df_sorted.index[input_df_sorted['FileName'] == original_path].tolist()
                         )
-            
-            logger.info(f"Converted {converted_count} DICOM files to AVI format in {tmp_dir}")
-            
-            input_df_sorted.drop(rows_to_discard, inplace=True)
-            input_df_sorted.reset_index(drop=True, inplace=True)
-            logger.info(f"Discarded {len(rows_to_discard)} rows - new dataframe length: {len(input_df_sorted)}")
-   
-        # save new input dataframe
+        else:
+            logger.info("not using multicpu DICOM preprocessing")
+            # Process files sequentially
+            for dicom_filepath in tqdm(dicom_filepaths, desc="Converting DICOM to AVI"):
+                avi_filepath: str = convert_dicom_to_avi(input_path=dicom_filepath, output_path=str(tmp_dir))
+                if avi_filepath:
+                    input_df_sorted.loc[input_df_sorted['FileName'] == dicom_filepath, 'FileName'] = avi_filepath
+                    converted_count += 1
+                else:
+                    rows_to_discard.append(input_df_sorted.index[input_df_sorted['FileName'] == dicom_filepath][0])
+
+        # Process results and clean up dataframe
+        logger.info(f"Converted {converted_count} DICOM files to AVI format in {tmp_dir}")
+        input_df_sorted.drop(rows_to_discard, inplace=True)
+        input_df_sorted.reset_index(drop=True, inplace=True)
+        logger.info(f"Discarded {len(rows_to_discard)} rows - new dataframe length: {len(input_df_sorted)}")
+
+        # Save new input dataframe
         input_df_sorted.to_csv(tmp_dir / "input_df_sorted.csv", index=False, sep='α')
         args.data_path = tmp_dir / "input_df_sorted.csv"
-            
             
         # Initialize DeepRV models
         deeprv_models = {}        

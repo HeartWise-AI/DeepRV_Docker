@@ -26,6 +26,7 @@ num_workers=$(get_param "num_workers")
 preprocessing_workers=$(get_param "preprocessing_workers")
 video_path=$(get_param "video_path")
 eval_granularity=$(get_param "eval_granularity")
+use_multicpu_dcm_preprocessing=$(get_param "use_multicpu_dcm_preprocessing")
 
 # Overwrite mode by command line argument
 while [[ "$#" -gt 0 ]]; do
@@ -66,7 +67,8 @@ run_pipeline() {
         --video_path $video_path \
         --num_workers $num_workers \
         --preprocessing_workers $preprocessing_workers \
-        --eval_granularity $eval_granularity
+        --eval_granularity $eval_granularity \
+        --use_multicpu_dcm_preprocessing $use_multicpu_dcm_preprocessing
 }
 
 # Main execution based on mode
