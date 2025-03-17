@@ -58,7 +58,7 @@
    - Note that the `Examen_ID` column is optional for video-based metrics computation, but it is mandatory for examen-based metrics computation
    - The `FileName` column should contain the path to the DICOM files if the input is DICOM, or the path to the AVI files if the input is AVI
       - example: `/app/videos/path_to_video1.dcm` or `/app/videos/path_to_video1.avi`
-2. Prepare you pipeline configuration file (see heartwise.config for reference) - **Recommended to use default config and change only the necessary parameters**
+2. Prepare your pipeline configuration file (see heartwise.config for reference) - **Recommended to use default config and change only the necessary parameters**
    - `model_device`: GPU device to use for inference (e.g. `cuda:0` or `cuda:1`)
    - `data_path`: Path to the input csv file **without the filename**
    - `config_path`: Path to the pipeline configuration file, **should not be modified**
